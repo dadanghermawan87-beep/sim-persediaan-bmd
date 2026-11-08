@@ -31,7 +31,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global Firebase Configuration & Global State
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'sim-persediaan-bmd-sman16garut';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "dummy-key",
@@ -82,7 +81,6 @@
                 }
             },
 
-            // RULE 1: Strict Public Collection Paths
             getPublicCollectionRef(collName) {
                 return collection(firestoreDb, 'artifacts', appId, 'public', 'data', collName);
             },
@@ -90,39 +88,31 @@
                 return doc(firestoreDb, 'artifacts', appId, 'public', 'data', collName, docId);
             },
 
-            // REALTIME SUBSCRIBERS
             subscribeRealtimeListeners() {
                 if (!currentUser || !firestoreDb) return;
 
-                // 1. Settings Listener
                 onSnapshot(this.getPublicDocRef('settings', 'config'), (snapshot) => {
                     if (snapshot.exists()) {
                         window.db.settings = { ...window.DEFAULT_SETTINGS, ...snapshot.data() };
                         localStorage.setItem('bmd_settings', JSON.stringify(window.db.settings));
                         window.renderAll();
                     } else {
-                        // Seed default settings to cloud
                         this.saveSettings(window.db.settings);
                     }
                 }, (err) => console.error("Cloud settings sync error:", err));
 
-                // 2. Barang Master Listener (Rule 2: Simple Collection listener)
                 onSnapshot(this.getPublicCollectionRef('barang'), (snapshot) => {
                     if (!snapshot.empty) {
                         const cloudItems = [];
-                        snapshot.forEach(docSnap => {
-                            cloudItems.push(docSnap.data());
-                        });
+                        snapshot.forEach(docSnap => cloudItems.push(docSnap.data()));
                         window.db.barang = cloudItems;
                         localStorage.setItem('bmd_barang', JSON.stringify(window.db.barang));
                         window.renderAll();
                     } else {
-                        // Seed initial barang to cloud if empty
                         window.INITIAL_BARANG.forEach(item => this.saveBarang(item));
                     }
                 }, (err) => console.error("Cloud barang sync error:", err));
 
-                // 3. Buku Penerimaan Listener
                 onSnapshot(this.getPublicCollectionRef('penerimaan'), (snapshot) => {
                     const cloudItems = [];
                     snapshot.forEach(docSnap => cloudItems.push(docSnap.data()));
@@ -131,7 +121,6 @@
                     window.renderAll();
                 }, (err) => console.error("Cloud penerimaan sync error:", err));
 
-                // 4. Buku Pengeluaran Listener
                 onSnapshot(this.getPublicCollectionRef('pengeluaran'), (snapshot) => {
                     const cloudItems = [];
                     snapshot.forEach(docSnap => cloudItems.push(docSnap.data()));
@@ -140,7 +129,6 @@
                     window.renderAll();
                 }, (err) => console.error("Cloud pengeluaran sync error:", err));
 
-                // 5. BAST Penyaluran Listener
                 onSnapshot(this.getPublicCollectionRef('bast'), (snapshot) => {
                     const cloudItems = [];
                     snapshot.forEach(docSnap => cloudItems.push(docSnap.data()));
@@ -150,7 +138,6 @@
                 }, (err) => console.error("Cloud BAST sync error:", err));
             },
 
-            // DATA WRITERS TO CLOUD
             async saveSettings(settings) {
                 if (!currentUser || !firestoreDb) return;
                 try {
@@ -244,7 +231,6 @@
             }
         }
         
-        /* Dynamic Paper Size Classes */
         .page-portrait {
             width: 100%;
             max-width: 210mm;
@@ -393,7 +379,6 @@
 
             <!-- TAB 1: DASHBOARD & STOK BARANG -->
             <div id="tab-dashboard" class="tab-content space-y-6">
-                <!-- Stat Cards Grid -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
                         <div>
@@ -427,7 +412,6 @@
                     </div>
                 </div>
 
-                <!-- Visual Chart Section -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <h4 class="text-xs font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-chart-bar text-emerald-600 mr-2"></i> Proporsi Nilai Aset per Barang</h4>
@@ -443,7 +427,6 @@
                     </div>
                 </div>
 
-                <!-- Master Inventory Table Card -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 space-y-5">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
                         <div>
@@ -457,11 +440,11 @@
                                 <i class="fas fa-file-excel text-emerald-600"></i>
                                 <span>Unduh Template</span>
                             </button>
-                            <button type="button" onclick="openImportMasterModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer" title="Import Data Master Barang dari CSV/Excel">
+                            <button type="button" onclick="openImportMasterModal()" class="bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
                                 <i class="fas fa-file-import"></i>
                                 <span>Import Excel/CSV</span>
                             </button>
-                            <button type="button" onclick="exportMasterBarangToExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer" title="Ekspor Data Master ke Excel">
+                            <button type="button" onclick="exportMasterBarangToExcel()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
                                 <i class="fas fa-file-export"></i>
                                 <span>Ekspor Excel</span>
                             </button>
@@ -493,7 +476,6 @@
                                 </tr>
                             </thead>
                             <tbody id="master-table-body" class="divide-y divide-slate-100 font-medium">
-                                <!-- Dynamic Rows -->
                             </tbody>
                         </table>
                     </div>
@@ -519,11 +501,10 @@
                                 <i class="fas fa-wand-magic-sparkles"></i>
                                 <span>Upload Surat Pesanan (AI Ekstrak)</span>
                             </button>
-                            <button onclick="openModalSmartExtract('bast_penerimaan')" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer" title="Upload BAST Penyerahan untuk Otomatisasi Tanggal Datang Barang">
+                            <button onclick="openModalSmartExtract('bast_penerimaan')" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
                                 <i class="fas fa-calendar-check"></i>
                                 <span>Upload BAST (Tgl Datang)</span>
                             </button>
-                            <!-- Dropdown Menu Cetak & Ekspor Buku Penerimaan -->
                             <div class="relative">
                                 <button onclick="toggleBukuPenerimaanMenu(event)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer">
                                     <i class="fas fa-print"></i>
@@ -543,16 +524,11 @@
                                         <i class="fas fa-file-excel text-emerald-600 w-4"></i>
                                         <span>Ekspor ke Excel</span>
                                     </button>
-                                    <button onclick="exportBukuPenerimaanWord(); hideBukuPenerimaanMenu();" class="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2 font-medium cursor-pointer">
-                                        <i class="fas fa-file-word text-blue-600 w-4"></i>
-                                        <span>Ekspor ke Word</span>
-                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Header Config -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Satuan Kerja / OPD</label>
@@ -583,7 +559,6 @@
                         </div>
                     </div>
 
-                    <!-- Buku Penerimaan Table -->
                     <div class="overflow-x-auto custom-scrollbar border border-slate-200/60 rounded-xl">
                         <table class="w-full text-left text-xs text-slate-600">
                             <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200/80 text-center">
@@ -601,14 +576,13 @@
                                 </tr>
                                 <tr>
                                     <th class="p-2 border-r bg-slate-100/50">Tanggal</th>
-                                    <th class="p-2 border-r bg-slate-100/50">Nomor</th>
+                                    <th class="p-2 border-r bg-slate-100/50">Nomor BAST</th>
                                     <th class="p-2 border-r bg-slate-100/50">Penyedia / Sumber</th>
                                     <th class="p-2 border-r bg-slate-100/50">Spesifikasi</th>
                                     <th class="p-2 border-r bg-slate-100/50">Jumlah</th>
                                 </tr>
                             </thead>
                             <tbody id="bp-table-body" class="divide-y divide-slate-100 font-medium">
-                                <!-- Dynamic Content -->
                             </tbody>
                         </table>
                     </div>
@@ -709,7 +683,6 @@
                                 </tr>
                             </thead>
                             <tbody id="bpg-table-body" class="divide-y divide-slate-100 font-medium">
-                                <!-- Dynamic Rows -->
                             </tbody>
                         </table>
                     </div>
@@ -760,7 +733,6 @@
                                 </tr>
                             </thead>
                             <tbody id="bast-table-body" class="divide-y divide-slate-100 font-medium">
-                                <!-- Dynamic Rows -->
                             </tbody>
                         </table>
                     </div>
@@ -798,7 +770,6 @@
                                 </tr>
                             </thead>
                             <tbody id="so-table-body" class="divide-y divide-slate-100 font-medium">
-                                <!-- Dynamic Rows -->
                             </tbody>
                         </table>
                     </div>
@@ -817,7 +788,6 @@
                         </div>
                         <div class="flex items-center space-x-2 w-full sm:w-auto">
                             <select id="select-kartu-barang" onchange="renderKartuBarang()" class="w-full sm:w-64 px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none">
-                                <!-- Dynamic Options -->
                             </select>
                             <button onclick="printKartuBarang()" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm whitespace-nowrap">
                                 <i class="fas fa-print mr-1"></i> Cetak Kartu
@@ -826,7 +796,6 @@
                     </div>
 
                     <div id="kartu-barang-container" class="space-y-4">
-                        <!-- Dynamic Card Info & Mutasi Table -->
                     </div>
                 </div>
             </div>
@@ -838,7 +807,7 @@
                         <h3 class="font-bold text-slate-800 text-base flex items-center">
                             <i class="fas fa-sliders text-slate-600 mr-2.5"></i>Pengaturan Kop Surat & Pejabat Penandatangan
                         </h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Konfigurasi header dokumen cetak resmi, upload logo instansi, dan NIP pejabat sekolah</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Konfigurasi header dokumen cetak resmi, upload logo instansi, Gemini API Key, dan NIP pejabat sekolah</p>
                     </div>
 
                     <!-- Card Backup & Restore Database JSON -->
@@ -848,7 +817,7 @@
                                 <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center">
                                     <i class="fas fa-database text-emerald-600 mr-2"></i> Manajemen Backup & Restore Database JSON
                                 </h4>
-                                <p class="text-[11px] text-slate-500 mt-0.5">Ekspor seluruh data persediaan (Master Barang, Buku Penerimaan, Pengeluaran, BAST & Pengaturan) ke format berkas JSON untuk cadangan cadangan aman atau pulihkan data dari file JSON.</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Ekspor seluruh data persediaan ke format berkas JSON untuk cadangan aman atau pulihkan data dari file JSON.</p>
                             </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1">
@@ -870,6 +839,20 @@
 
                     <form id="form-settings" onsubmit="saveSettings(event)" class="space-y-6">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Input Gemini API Key Settings -->
+                            <div class="sm:col-span-2 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-200 space-y-2">
+                                <label class="block text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center">
+                                    <i class="fas fa-key text-purple-600 mr-2"></i> Google AI Gemini API Key (Untuk Smart AI Extraction)
+                                </label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="password" id="cfg-gemini-key" placeholder="AIzaSy..." class="flex-1 px-3.5 py-2 border rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                                    <button type="button" onclick="toggleApiKeyVisibility('cfg-gemini-key', 'cfg-eye-icon')" class="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 shadow-sm">
+                                        <i class="fas fa-eye" id="cfg-eye-icon"></i>
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-purple-700">Dapatkan API Key secara <strong>GRATIS</strong> melalui <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold text-purple-800 hover:text-purple-950">Google AI Studio (aistudio.google.com)</a>.</p>
+                            </div>
+
                             <!-- Menu Upload Logo Kop Surat -->
                             <div class="sm:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
                                 <label class="block text-xs font-bold text-slate-700">Logo Kop Surat Instansi / Sekolah</label>
@@ -1059,7 +1042,6 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Barang Persediaan</label>
                     <select id="pen-barang-id" onchange="autoFillPenerimaanPrice()" required class="w-full px-3.5 py-2 border rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <!-- Dynamic Options -->
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -1068,8 +1050,8 @@
                         <input type="date" id="pen-tanggal" required class="w-full px-3.5 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Dokumen / Nota</label>
-                        <input type="text" id="pen-nomor" placeholder="050/SP/XI/2026" required class="w-full px-3.5 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Nomor BAST Penerimaan</label>
+                        <input type="text" id="pen-nomor" placeholder="050/BAST/XI/2026" required class="w-full px-3.5 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                 </div>
                 <div>
@@ -1109,7 +1091,6 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Barang Persediaan</label>
                     <select id="peng-barang-id" required class="w-full px-3.5 py-2 border rounded-xl text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                        <!-- Dynamic Options -->
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -1183,7 +1164,6 @@
                     </div>
                 </div>
 
-                <!-- Pihak Kesatu & Kedua -->
                 <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     <div>
                         <h4 class="font-bold text-xs text-indigo-900 mb-2">Pihak Pertama (Penyerah)</h4>
@@ -1198,7 +1178,6 @@
                     </div>
                 </div>
 
-                <!-- Container Rincian Item Barang BAST -->
                 <div class="space-y-2">
                     <div class="flex justify-between items-center">
                         <label class="block text-xs font-bold text-slate-700">Daftar Barang Disalurkan</label>
@@ -1208,7 +1187,6 @@
                         </button>
                     </div>
                     <div id="bast-items-container" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
-                        <!-- Dynamic BAST Item Selection Rows -->
                     </div>
                 </div>
 
@@ -1229,9 +1207,25 @@
                 </h3>
                 <button onclick="closeModal('modal-smart-extract')" class="text-white/80 hover:text-white text-lg font-bold">&times;</button>
             </div>
-            <div class="p-6 space-y-5">
+            <div class="p-6 space-y-4">
                 <input type="hidden" id="smart-extract-mode" value="sp">
                 
+                <!-- Input Gemini API Key Box -->
+                <div class="bg-purple-50/80 p-3.5 rounded-xl border border-purple-200 space-y-1.5">
+                    <label class="block text-[11px] font-bold text-purple-900 uppercase tracking-wider flex items-center justify-between">
+                        <span><i class="fas fa-key text-purple-600 mr-1.5"></i> Google Gemini API Key</span>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-purple-700 underline font-bold hover:text-purple-950">
+                            Dapatkan API Key Gratis di Google AI Studio &rarr;
+                        </a>
+                    </label>
+                    <div class="flex items-center space-x-2">
+                        <input type="password" id="smart-extract-api-key" placeholder="Masukkan Gemini API Key (AIzaSy...)" class="flex-1 px-3 py-2 border border-purple-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                        <button type="button" onclick="toggleApiKeyVisibility('smart-extract-api-key', 'modal-api-eye')" class="px-3 py-2 bg-white border border-purple-300 rounded-xl text-xs font-bold text-purple-700 hover:bg-purple-100 shadow-sm">
+                            <i class="fas fa-eye" id="modal-api-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Grid 2 Input Header: Kode Rekening & Sumber Anggaran -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -1289,7 +1283,6 @@
 
                 <!-- Dual Upload Area: SP Box & BAST Box Side-by-Side -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Box 1: Surat Pesanan -->
                     <div class="border-2 border-dashed border-purple-200 bg-purple-50/30 hover:bg-purple-50/60 rounded-2xl p-4 text-center transition-all flex flex-col justify-between items-center group">
                         <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-2 shadow-sm group-hover:scale-110 transition-transform">
                             <i class="fas fa-file-invoice text-lg"></i>
@@ -1303,7 +1296,6 @@
                         </div>
                     </div>
 
-                    <!-- Box 2: BAST -->
                     <div class="border-2 border-dashed border-blue-200 bg-blue-50/30 hover:bg-blue-50/60 rounded-2xl p-4 text-center transition-all flex flex-col justify-between items-center group">
                         <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-2 shadow-sm group-hover:scale-110 transition-transform">
                             <i class="fas fa-truck-ramp-box text-lg"></i>
@@ -1334,12 +1326,17 @@
 
                 <!-- Pratinjau Hasil & Input Tanggal Kedatangan Terdeteksi -->
                 <div id="smart-extract-preview" class="hidden space-y-3 pt-2 border-t border-slate-100">
-                    <div class="flex items-center justify-between bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-file-contract text-emerald-600 text-sm"></i>
+                            <span class="text-xs font-bold text-emerald-950">Nomor BAST Penerimaan:</span>
+                            <input type="text" id="smart-extract-no-bast" placeholder="Nomor BAST Dokumen" class="px-2.5 py-1 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 bg-white flex-1">
+                        </div>
                         <div class="flex items-center space-x-2">
                             <i class="fas fa-calendar-check text-emerald-600 text-sm"></i>
-                            <span class="text-xs font-bold text-emerald-950">Tanggal Kedatangan Datang:</span>
+                            <span class="text-xs font-bold text-emerald-950">Tanggal Datang:</span>
+                            <input type="date" id="smart-extract-tgl-datang" class="px-2.5 py-1 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 bg-white flex-1">
                         </div>
-                        <input type="date" id="smart-extract-tgl-datang" class="px-3 py-1 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 bg-white">
                     </div>
 
                     <div class="flex justify-between items-center">
@@ -1350,7 +1347,6 @@
                     </div>
                 </div>
 
-                <!-- Footer Control Buttons -->
                 <div class="pt-3 border-t border-slate-200 flex items-center justify-end space-x-3">
                     <button type="button" onclick="closeModal('modal-smart-extract')" class="px-5 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all">
                         Batal
@@ -1420,10 +1416,8 @@
                 </div>
             </div>
 
-            <!-- Area Tampilan Cetak Dokumen -->
             <div class="flex-1 overflow-y-auto p-8 bg-slate-100 flex justify-center custom-scrollbar">
                 <div id="printable-area" class="bg-white text-slate-900 shadow-xl p-8 w-full max-w-[210mm] min-h-[297mm] border border-slate-200 text-xs">
-                    <!-- Dynamic Printable Content -->
                 </div>
             </div>
         </div>
@@ -1440,7 +1434,8 @@
             kepsekNip: "19680512 199403 1 004",
             pengurusNama: "Cecep Supriatna, S.ST.",
             pengurusNip: "19820914 201001 1 012",
-            logoUrl: ""
+            logoUrl: "",
+            geminiApiKey: localStorage.getItem('bmd_gemini_api_key') || ""
         };
 
         window.INITIAL_BARANG = [
@@ -1462,6 +1457,20 @@
         let tempExtractedItems = [];
         let chartNilaiAset = null;
         let chartStatusStok = null;
+
+        // --- VISIBILITY TOGGLE FOR API KEY ---
+        function toggleApiKeyVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (icon) icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                if (icon) icon.className = 'fas fa-eye';
+            }
+        }
 
         // --- NAVIGATION & MODAL CONTROLLERS ---
         function switchTab(tabId) {
@@ -1497,7 +1506,13 @@
             if (document.getElementById('cfg-kepsek-nip')) document.getElementById('cfg-kepsek-nip').value = s.kepsekNip || '';
             if (document.getElementById('cfg-pengurus-nama')) document.getElementById('cfg-pengurus-nama').value = s.pengurusNama || '';
             if (document.getElementById('cfg-pengurus-nip')) document.getElementById('cfg-pengurus-nip').value = s.pengurusNip || '';
+            if (document.getElementById('cfg-gemini-key')) document.getElementById('cfg-gemini-key').value = s.geminiApiKey || localStorage.getItem('bmd_gemini_api_key') || '';
             
+            const modalApiKeyInput = document.getElementById('smart-extract-api-key');
+            if (modalApiKeyInput) {
+                modalApiKeyInput.value = s.geminiApiKey || localStorage.getItem('bmd_gemini_api_key') || '';
+            }
+
             const imgPreview = document.getElementById('cfg-logo-preview');
             const placeholder = document.getElementById('cfg-logo-placeholder');
             if (s.logoUrl) {
@@ -2060,14 +2075,12 @@
             document.getElementById('form-bast').reset();
             document.getElementById('bast-tanggal').value = new Date().toISOString().slice(0, 10);
 
-            // Auto-fill Pihak Pertama with Pengurus Barang details
             const s = db.settings || window.DEFAULT_SETTINGS;
             document.getElementById('bast-p1-nama').value = s.pengurusNama || '';
             document.getElementById('bast-p1-jabatan').value = 'Pengurus Barang Persediaan';
 
             autoGenerateBastNumbers();
 
-            // Clear item rows and add one initial row
             const container = document.getElementById('bast-items-container');
             if (container) {
                 container.innerHTML = '';
@@ -2133,7 +2146,7 @@
             `;
         }
 
-        // --- DOCUMENT PRINTER ENGINE (BAST, SPPB, NOTA, SPB ACC) ---
+        // --- DOCUMENT PRINTER ENGINE ---
         function printBastDoc(id, type) {
             const b = db.bast.find(x => x.id === id);
             if (!b) return;
@@ -2504,9 +2517,15 @@
         function exportBukuPengeluaranExcel() {}
         function printStockOpname() { window.print(); }
         function printKartuBarang() { window.print(); }
+        
         function openModalSmartExtract(mode) {
             const m = document.getElementById('modal-smart-extract');
-            if (m) m.classList.remove('hidden');
+            if (!m) return;
+            const keyInput = document.getElementById('smart-extract-api-key');
+            if (keyInput) {
+                keyInput.value = db.settings.geminiApiKey || localStorage.getItem('bmd_gemini_api_key') || '';
+            }
+            m.classList.remove('hidden');
         }
 
         // --- SMART AI EXTRACTION WITH GEMINI API INTEGRATION ---
@@ -2551,7 +2570,6 @@
         async function fileToGeminiPart(file) {
             if (!file) return null;
             
-            // Jika file Excel/CSV -> ekstrak tabel sheet menjadi format teks prompt
             if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
                 return new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -2574,7 +2592,6 @@
                 });
             }
 
-            // Jika PDF atau Gambar -> ubah menjadi base64 inlineData
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -2599,6 +2616,32 @@
             const previewBox = document.getElementById('smart-extract-preview');
             const applyBtn = document.getElementById('btn-apply-extract');
 
+            // Ambisius Ambil Gemini API Key dari Modal Input / DB Settings / LocalStorage
+            let apiKey = (document.getElementById('smart-extract-api-key')?.value || '').trim();
+            if (!apiKey) {
+                apiKey = (db.settings.geminiApiKey || localStorage.getItem('bmd_gemini_api_key') || '').trim();
+            }
+
+            if (!apiKey) {
+                const userKey = prompt('Google Gemini API Key belum diisi!\n\nSilakan masukkan Gemini API Key Anda (dapatkan gratis di https://aistudio.google.com/app/apikey):');
+                if (userKey && userKey.trim()) {
+                    apiKey = userKey.trim();
+                    db.settings.geminiApiKey = apiKey;
+                    localStorage.setItem('bmd_gemini_api_key', apiKey);
+                    const modalInput = document.getElementById('smart-extract-api-key');
+                    if (modalInput) modalInput.value = apiKey;
+                    saveDb();
+                } else {
+                    alert('Proses ekstraksi dibatalkan karena Gemini API Key belum diisi.');
+                    return;
+                }
+            } else {
+                // Simpan kunci terkini
+                db.settings.geminiApiKey = apiKey;
+                localStorage.setItem('bmd_gemini_api_key', apiKey);
+                saveDb();
+            }
+
             if (!selectedFileSp && !selectedFileBast) {
                 alert('Pilih setidaknya 1 berkas (Surat Pesanan atau BAST) untuk diekstrak oleh AI Gemini!');
                 return;
@@ -2606,7 +2649,7 @@
 
             loadingBox.classList.remove('hidden');
             previewBox.classList.add('hidden');
-            if (loadingStatus) loadingStatus.innerText = '🤖 AI Gemini 3 Flash sedang membaca berkas & mengekstrak data persediaan (Harga Satuan Termasuk Pajak)...';
+            if (loadingStatus) loadingStatus.innerText = '🤖 AI Gemini Flash sedang menganalisis kedua dokumen & mengekstrak data persediaan (Harga Satuan Termasuk Pajak)...';
 
             try {
                 const parts = [];
@@ -2614,7 +2657,7 @@
                     text: `Anda adalah pakar pemroses dokumen pengadaan BMD (Barang Milik Daerah) sekolah. 
 Tugas Anda: Analisis berkas dokumen (Surat Pesanan/SP dan/atau BAST Penyerahan) berikut ini.
 Ekstrak daftar barang persediaan, jumlah (qty), satuan, dan HARGA SATUAN TERMASUK PAJAK (prioritaskan harga gross/netto yang sudah termasuk pajak 11%/VAT).
-Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan nama penyedia/toko jika ditemukan.`
+Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor BAST/Surat Pesanan, dan nama penyedia/toko jika ditemukan.`
                 });
 
                 if (selectedFileSp) {
@@ -2627,8 +2670,65 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
                     if (bastPart) parts.push(bastPart);
                 }
 
-                const apiKey = "";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                // Dynamic lookup of available models for the API key to prevent 404 NOT_FOUND errors
+                let candidateModels = [];
+                try {
+                    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                    if (listRes.ok) {
+                        const listData = await listRes.json();
+                        if (listData.models && Array.isArray(listData.models)) {
+                            const validModels = listData.models
+                                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+                                .map(m => m.name.replace(/^models\//, ''));
+                            
+                            const preferredOrder = [
+                                'gemini-2.5-flash',
+                                'gemini-2.5-flash-lite',
+                                'gemini-2.0-flash',
+                                'gemini-2.0-flash-exp',
+                                'gemini-1.5-flash-latest',
+                                'gemini-1.5-flash-002',
+                                'gemini-1.5-flash-001',
+                                'gemini-1.5-flash',
+                                'gemini-1.5-pro-latest',
+                                'gemini-1.5-pro'
+                            ];
+
+                            preferredOrder.forEach(pref => {
+                                if (validModels.includes(pref) && !candidateModels.includes(pref)) {
+                                    candidateModels.push(pref);
+                                }
+                            });
+
+                            validModels.forEach(mName => {
+                                if (!candidateModels.includes(mName)) {
+                                    candidateModels.push(mName);
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Could not query model list dynamically:", e);
+                }
+
+                // Comprehensive fallback candidate list if dynamic lookup was unavailable
+                if (candidateModels.length === 0) {
+                    candidateModels = [
+                        'gemini-2.5-flash',
+                        'gemini-2.5-flash-lite',
+                        'gemini-2.0-flash',
+                        'gemini-2.0-flash-exp',
+                        'gemini-1.5-flash-latest',
+                        'gemini-1.5-flash-002',
+                        'gemini-1.5-flash-001',
+                        'gemini-1.5-flash',
+                        'gemini-1.5-pro-latest',
+                        'gemini-1.5-pro'
+                    ];
+                }
+
+                let result = null;
+                let lastError = null;
 
                 const payload = {
                     contents: [{ parts: parts }],
@@ -2660,7 +2760,21 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
                     }
                 };
 
-                const result = await fetchGeminiWithBackoff(apiUrl, payload);
+                for (const modelName of candidateModels) {
+                    try {
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                        result = await fetchGeminiWithBackoff(apiUrl, payload);
+                        if (result) break;
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`Model ${modelName} call failed, trying next fallback candidate...`, err);
+                    }
+                }
+
+                if (!result) {
+                    throw lastError || new Error("Gagal menghubungkan ke model AI Gemini.");
+                }
+
                 const candidate = result.candidates?.[0];
                 const jsonText = candidate?.content?.parts?.[0]?.text;
 
@@ -2671,7 +2785,12 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
                 const parsed = JSON.parse(jsonText);
                 tempExtractedItems = parsed.items || [];
 
-                // Render hasil ke antarmuka pengguna
+                if (parsed.nomorDokumen && document.getElementById('smart-extract-no-bast')) {
+                    document.getElementById('smart-extract-no-bast').value = parsed.nomorDokumen;
+                } else if (document.getElementById('smart-extract-no-bast')) {
+                    document.getElementById('smart-extract-no-bast').value = 'BAST/' + new Date().getFullYear() + '/' + Date.now().toString().slice(-4);
+                }
+
                 if (parsed.tanggalDatang && document.getElementById('smart-extract-tgl-datang')) {
                     document.getElementById('smart-extract-tgl-datang').value = parsed.tanggalDatang;
                 } else if (document.getElementById('smart-extract-tgl-datang')) {
@@ -2770,10 +2889,14 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
             localStorage.setItem('bmd_penerimaan', JSON.stringify(db.penerimaan));
             localStorage.setItem('bmd_pengeluaran', JSON.stringify(db.pengeluaran));
             localStorage.setItem('bmd_bast', JSON.stringify(db.bast));
+            if (db.settings.geminiApiKey) {
+                localStorage.setItem('bmd_gemini_api_key', db.settings.geminiApiKey);
+            }
         }
 
         function saveSettings(e) {
             e.preventDefault();
+            const apiKeyVal = (document.getElementById('cfg-gemini-key')?.value || '').trim();
             db.settings = {
                 header1: document.getElementById('cfg-header1').value,
                 header2: document.getElementById('cfg-header2').value,
@@ -2783,13 +2906,14 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
                 kepsekNip: document.getElementById('cfg-kepsek-nip').value,
                 pengurusNama: document.getElementById('cfg-pengurus-nama').value,
                 pengurusNip: document.getElementById('cfg-pengurus-nip').value,
-                logoUrl: db.settings.logoUrl || ""
+                logoUrl: db.settings.logoUrl || "",
+                geminiApiKey: apiKeyVal
             };
             saveDb();
             if (window.bmdCloud && window.bmdCloud.saveSettings) {
                 window.bmdCloud.saveSettings(db.settings);
             }
-            alert("Pengaturan Kop Surat, Logo & Penandatangan berhasil disimpan ke Cloud!");
+            alert("Pengaturan Kop Surat, API Key & Penandatangan berhasil disimpan ke Cloud!");
         }
 
         function saveBarangMaster(e) {
@@ -2942,7 +3066,6 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
 
             db.bast.push(bastData);
 
-            // Auto log into Pengeluaran table
             items.forEach(it => {
                 const pengData = {
                     id: 'PENG-' + Date.now() + Math.random().toString(36).substr(2, 4),
@@ -2966,7 +3089,6 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
             closeModal('modal-form-bast');
             renderAll();
 
-            // Print right away
             printBastDoc(bastId, 'bast');
         }
 
@@ -2995,6 +3117,7 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
             const kodeSelect = document.getElementById('smart-extract-kode').value || '5.1.02.01.01.0024';
             const penyedia = document.getElementById('smart-extract-sumber').value || 'BOPD / BOS REGULER';
             const tglDatang = document.getElementById('smart-extract-tgl-datang').value || new Date().toISOString().slice(0, 10);
+            const noBastExtracted = document.getElementById('smart-extract-no-bast').value || ('BAST/' + new Date().getFullYear() + '/' + Date.now().toString().slice(-4));
 
             tempExtractedItems.forEach(it => {
                 let brg = db.barang.find(x => x.nama.toLowerCase() === it.nama.toLowerCase());
@@ -3020,7 +3143,7 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan n
                     barangId: brg.id,
                     namaBarang: brg.nama,
                     tanggal: tglDatang,
-                    nomor: 'AUTO/AI/' + Date.now().toString().slice(-4),
+                    nomor: noBastExtracted,
                     penyedia: penyedia,
                     jumlah: it.jumlah,
                     harga: it.harga,

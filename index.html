@@ -2508,18 +2508,260 @@
             const m = document.getElementById('modal-smart-extract');
             if (m) m.classList.remove('hidden');
         }
-        function handleFileSpSelected(e) {}
-        function handleFileBastSelected(e) {}
-        function triggerSmartExtractGenerate() {
-            document.getElementById('smart-extract-loading').classList.remove('hidden');
-            setTimeout(() => {
-                document.getElementById('smart-extract-loading').classList.add('hidden');
-                document.getElementById('smart-extract-preview').classList.remove('hidden');
-                document.getElementById('btn-apply-extract').disabled = false;
-                document.getElementById('btn-apply-extract').className = "px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer hover:bg-emerald-700 shadow-md";
-            }, 1000);
+
+        // --- SMART AI EXTRACTION WITH GEMINI API INTEGRATION ---
+        let selectedFileSp = null;
+        let selectedFileBast = null;
+
+        function handleFileSpSelected(e) {
+            selectedFileSp = e.target.files[0] || null;
         }
-        function saveEditedExtractedItem(e) { e.preventDefault(); }
+
+        function handleFileBastSelected(e) {
+            selectedFileBast = e.target.files[0] || null;
+        }
+
+        async function fetchGeminiWithBackoff(apiUrl, payload, maxRetries = 3) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    if (response.status === 429 || response.status >= 500) {
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                        continue;
+                    }
+                    const errText = await response.text();
+                    throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+                } catch (err) {
+                    if (i === maxRetries - 1) throw err;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        async function fileToGeminiPart(file) {
+            if (!file) return null;
+            
+            // Jika file Excel/CSV -> ekstrak tabel sheet menjadi format teks prompt
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            let textContent = `=== KONTEN BERKAS EXCEL/CSV: ${file.name} ===\n`;
+                            workbook.SheetNames.forEach(sheetName => {
+                                const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                                textContent += `--- SHEET: ${sheetName} ---\n${csv}\n`;
+                            });
+                            resolve({ text: textContent });
+                        } catch (err) {
+                            reject(err);
+                        }
+                    };
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(file);
+                });
+            }
+
+            // Jika PDF atau Gambar -> ubah menjadi base64 inlineData
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const base64Data = e.target.result.split(',')[1];
+                    let mimeType = file.type || 'application/pdf';
+                    if (file.name.endsWith('.pdf')) mimeType = 'application/pdf';
+                    resolve({
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: base64Data
+                        }
+                    });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function triggerSmartExtractGenerate() {
+            const loadingBox = document.getElementById('smart-extract-loading');
+            const loadingStatus = document.getElementById('loading-status-text');
+            const previewBox = document.getElementById('smart-extract-preview');
+            const applyBtn = document.getElementById('btn-apply-extract');
+
+            if (!selectedFileSp && !selectedFileBast) {
+                alert('Pilih setidaknya 1 berkas (Surat Pesanan atau BAST) untuk diekstrak oleh AI Gemini!');
+                return;
+            }
+
+            loadingBox.classList.remove('hidden');
+            previewBox.classList.add('hidden');
+            if (loadingStatus) loadingStatus.innerText = '🤖 AI Gemini 3 Flash sedang membaca berkas & mengekstrak data persediaan (Harga Satuan Termasuk Pajak)...';
+
+            try {
+                const parts = [];
+                parts.push({
+                    text: `Anda adalah pakar pemroses dokumen pengadaan BMD (Barang Milik Daerah) sekolah. 
+Tugas Anda: Analisis berkas dokumen (Surat Pesanan/SP dan/atau BAST Penyerahan) berikut ini.
+Ekstrak daftar barang persediaan, jumlah (qty), satuan, dan HARGA SATUAN TERMASUK PAJAK (prioritaskan harga gross/netto yang sudah termasuk pajak 11%/VAT).
+Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor dokumen, dan nama penyedia/toko jika ditemukan.`
+                });
+
+                if (selectedFileSp) {
+                    const spPart = await fileToGeminiPart(selectedFileSp);
+                    if (spPart) parts.push(spPart);
+                }
+
+                if (selectedFileBast) {
+                    const bastPart = await fileToGeminiPart(selectedFileBast);
+                    if (bastPart) parts.push(bastPart);
+                }
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{ parts: parts }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "tanggalDatang": { "type": "STRING", "description": "Tanggal kedatangan barang format YYYY-MM-DD" },
+                                "nomorDokumen": { "type": "STRING", "description": "Nomor Surat Pesanan atau BAST" },
+                                "penyedia": { "type": "STRING", "description": "Nama Penyedia / Toko / CV" },
+                                "items": {
+                                    "type": "ARRAY",
+                                    "items": {
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "nama": { "type": "STRING", "description": "Nama lengkap barang persediaan" },
+                                            "jumlah": { "type": "NUMBER", "description": "Jumlah/kuantitas barang" },
+                                            "satuan": { "type": "STRING", "description": "Satuan barang (rim, buah, PCS, pak, box, roll, dll)" },
+                                            "harga": { "type": "NUMBER", "description": "Harga satuan TERMASUK PAJAK (Rupiah)" },
+                                            "spesifikasi": { "type": "STRING", "description": "Spesifikasi/merk barang" }
+                                        },
+                                        "propertyOrdering": ["nama", "jumlah", "satuan", "harga", "spesifikasi"]
+                                    }
+                                }
+                            },
+                            "propertyOrdering": ["tanggalDatang", "nomorDokumen", "penyedia", "items"]
+                        }
+                    }
+                };
+
+                const result = await fetchGeminiWithBackoff(apiUrl, payload);
+                const candidate = result.candidates?.[0];
+                const jsonText = candidate?.content?.parts?.[0]?.text;
+
+                if (!jsonText) {
+                    throw new Error("AI Gemini tidak mengembalikan data yang valid dari dokumen.");
+                }
+
+                const parsed = JSON.parse(jsonText);
+                tempExtractedItems = parsed.items || [];
+
+                // Render hasil ke antarmuka pengguna
+                if (parsed.tanggalDatang && document.getElementById('smart-extract-tgl-datang')) {
+                    document.getElementById('smart-extract-tgl-datang').value = parsed.tanggalDatang;
+                } else if (document.getElementById('smart-extract-tgl-datang')) {
+                    document.getElementById('smart-extract-tgl-datang').value = new Date().toISOString().slice(0, 10);
+                }
+
+                if (parsed.penyedia && document.getElementById('smart-extract-sumber')) {
+                    document.getElementById('smart-extract-sumber').value = parsed.penyedia;
+                }
+
+                renderExtractedPreviewList();
+
+                loadingBox.classList.add('hidden');
+                previewBox.classList.remove('hidden');
+                applyBtn.disabled = false;
+                applyBtn.className = "px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer hover:bg-emerald-700 shadow-md";
+
+            } catch (err) {
+                console.error("Gemini Extraction Error:", err);
+                loadingBox.classList.add('hidden');
+                alert("Gagal melakukan ekstraksi AI Gemini: " + (err.message || err));
+            }
+        }
+
+        function renderExtractedPreviewList() {
+            const container = document.getElementById('smart-extract-list');
+            const badge = document.getElementById('smart-extract-count-badge');
+            if (!container) return;
+
+            if (badge) badge.innerText = `${tempExtractedItems.length} Item Terdeteksi`;
+            container.innerHTML = '';
+
+            if (tempExtractedItems.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-slate-400 italic">Tidak ada item barang yang terdeteksi oleh AI.</div>';
+                return;
+            }
+
+            tempExtractedItems.forEach((it, idx) => {
+                const total = (it.jumlah || 0) * (it.harga || 0);
+                const div = document.createElement('div');
+                div.className = 'py-2 px-3 flex items-center justify-between hover:bg-slate-50 transition-colors';
+                div.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-bold text-slate-800 text-xs">${idx + 1}. ${it.nama}</div>
+                        <div class="text-[11px] text-slate-500">
+                            Volume: <span class="font-bold text-slate-700">${it.jumlah} ${it.satuan}</span> • 
+                            Harga Satuan (Termasuk Pajak): <span class="font-bold text-emerald-700">Rp ${(it.harga || 0).toLocaleString('id-ID')}</span> • 
+                            Total: <span class="font-bold text-slate-800">Rp ${total.toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button type="button" onclick="openEditExtractedItemModal(${idx})" class="p-1 text-slate-400 hover:text-purple-600 rounded" title="Edit Item">
+                            <i class="fas fa-pen-to-square"></i>
+                        </button>
+                        <button type="button" onclick="tempExtractedItems.splice(${idx}, 1); renderExtractedPreviewList();" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="Hapus Item">
+                            <i class="fas fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function openEditExtractedItemModal(idx) {
+            const it = tempExtractedItems[idx];
+            if (!it) return;
+            document.getElementById('edit-ext-index').value = idx;
+            document.getElementById('edit-ext-nama').value = it.nama || '';
+            document.getElementById('edit-ext-jumlah').value = it.jumlah || 1;
+            document.getElementById('edit-ext-satuan').value = it.satuan || 'PCS';
+            document.getElementById('edit-ext-harga').value = it.harga || 0;
+            const m = document.getElementById('modal-edit-extract-item');
+            if (m) m.classList.remove('hidden');
+        }
+
+        function saveEditedExtractedItem(e) {
+            e.preventDefault();
+            const idx = parseInt(document.getElementById('edit-ext-index').value);
+            if (!isNaN(idx) && tempExtractedItems[idx]) {
+                tempExtractedItems[idx] = {
+                    nama: document.getElementById('edit-ext-nama').value,
+                    jumlah: parseInt(document.getElementById('edit-ext-jumlah').value) || 1,
+                    satuan: document.getElementById('edit-ext-satuan').value,
+                    harga: parseFloat(document.getElementById('edit-ext-harga').value) || 0,
+                    spesifikasi: 'Standar'
+                };
+                renderExtractedPreviewList();
+            }
+            closeModal('modal-edit-extract-item');
+        }
 
         // --- CORE SAVE DATABASE PERSISTENCE ---
         function saveDb() {

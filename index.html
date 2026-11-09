@@ -2670,65 +2670,8 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor BAST/Surat Pes
                     if (bastPart) parts.push(bastPart);
                 }
 
-                // Dynamic lookup of available models for the API key to prevent 404 NOT_FOUND errors
-                let candidateModels = [];
-                try {
-                    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-                    if (listRes.ok) {
-                        const listData = await listRes.json();
-                        if (listData.models && Array.isArray(listData.models)) {
-                            const validModels = listData.models
-                                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-                                .map(m => m.name.replace(/^models\//, ''));
-                            
-                            const preferredOrder = [
-                                'gemini-2.5-flash',
-                                'gemini-2.5-flash-lite',
-                                'gemini-2.0-flash',
-                                'gemini-2.0-flash-exp',
-                                'gemini-1.5-flash-latest',
-                                'gemini-1.5-flash-002',
-                                'gemini-1.5-flash-001',
-                                'gemini-1.5-flash',
-                                'gemini-1.5-pro-latest',
-                                'gemini-1.5-pro'
-                            ];
-
-                            preferredOrder.forEach(pref => {
-                                if (validModels.includes(pref) && !candidateModels.includes(pref)) {
-                                    candidateModels.push(pref);
-                                }
-                            });
-
-                            validModels.forEach(mName => {
-                                if (!candidateModels.includes(mName)) {
-                                    candidateModels.push(mName);
-                                }
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.warn("Could not query model list dynamically:", e);
-                }
-
-                // Comprehensive fallback candidate list if dynamic lookup was unavailable
-                if (candidateModels.length === 0) {
-                    candidateModels = [
-                        'gemini-2.5-flash',
-                        'gemini-2.5-flash-lite',
-                        'gemini-2.0-flash',
-                        'gemini-2.0-flash-exp',
-                        'gemini-1.5-flash-latest',
-                        'gemini-1.5-flash-002',
-                        'gemini-1.5-flash-001',
-                        'gemini-1.5-flash',
-                        'gemini-1.5-pro-latest',
-                        'gemini-1.5-pro'
-                    ];
-                }
-
-                let result = null;
-                let lastError = null;
+                // Menggunakan endpoint model gemini-1.5-flash yang stabil untuk API Key publik
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
                 const payload = {
                     contents: [{ parts: parts }],
@@ -2760,21 +2703,7 @@ Ekstrak juga tanggal kedatangan barang (format YYYY-MM-DD), nomor BAST/Surat Pes
                     }
                 };
 
-                for (const modelName of candidateModels) {
-                    try {
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-                        result = await fetchGeminiWithBackoff(apiUrl, payload);
-                        if (result) break;
-                    } catch (err) {
-                        lastError = err;
-                        console.warn(`Model ${modelName} call failed, trying next fallback candidate...`, err);
-                    }
-                }
-
-                if (!result) {
-                    throw lastError || new Error("Gagal menghubungkan ke model AI Gemini.");
-                }
-
+                const result = await fetchGeminiWithBackoff(apiUrl, payload);
                 const candidate = result.candidates?.[0];
                 const jsonText = candidate?.content?.parts?.[0]?.text;
 
